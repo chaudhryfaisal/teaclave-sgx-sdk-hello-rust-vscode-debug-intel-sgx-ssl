@@ -1,0 +1,11 @@
+[package]
+name = "app"
+version = "1.0.0"
+authors = ["The Teaclave Authors"]
+build = "build.rs"
+
+[dependencies]
+openssl-sys = { version = "0.9.101", features = ["vendored"] }
+bma-benchmark = { path = "../vendor/bma-benchmark" }
+sgx_types = { git = "https://github.com/apache/teaclave-sgx-sdk.git", version = "1.1.6" }
+sgx_urts = { git = "https://github.com/apache/teaclave-sgx-sdk.git", version = "1.1.6" }

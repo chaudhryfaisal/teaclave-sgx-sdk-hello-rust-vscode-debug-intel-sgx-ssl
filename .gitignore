@@ -1,0 +1,9 @@
+target
+bin
+lib
+*.c
+*.h
+*.o
+*.u
+*.a
+*.so

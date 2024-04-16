@@ -23,17 +23,20 @@ extern crate sgx_urts;
 use sgx_types::*;
 use sgx_urts::SgxEnclave;
 
-use openssl::{ecc_key_create, ecc_sign};
+use bma_benchmark::LatencyBenchmark;
+use openssl::{openssl_ecc_sign, openssl_ecc_sign_test};
 
 mod openssl;
 
 static ENCLAVE_FILE: &'static str = "enclave.signed.so";
 
 extern {
-    fn say_something(eid: sgx_enclave_id_t, retval: *mut sgx_status_t,
-                     some_string: *const u8, len: usize) -> sgx_status_t;
-    fn ecall_ecc_key_create(eid: sgx_enclave_id_t, retval: *mut sgx_status_t) -> sgx_status_t;
-    fn ecall_ecc_sign(eid: sgx_enclave_id_t, retval: *mut sgx_status_t, clear_text: *const u8, clear_text_len: usize) -> sgx_status_t;
+    fn say_something(eid: sgx_enclave_id_t, retval: *mut sgx_status_t, some_string: *const u8, len: usize) -> sgx_status_t;
+    fn ecall_openssl_ecc_key_create(eid: sgx_enclave_id_t) -> sgx_status_t;
+    fn ecall_openssl_ecc_sign(eid: sgx_enclave_id_t, clear_text: *const u8, clear_text_len: usize) -> sgx_status_t;
+    fn ecall_ring_ecc_key_create(eid: sgx_enclave_id_t) -> sgx_status_t;
+    fn ecall_ring_ecc_sign(eid: sgx_enclave_id_t, clear_text: *const u8, clear_text_len: usize) -> sgx_status_t;
+    fn ecall_empty_function(eid: sgx_enclave_id_t, clear_text: *const u8, clear_text_len: usize) -> sgx_status_t;
 }
 
 fn init_enclave() -> SgxResult<SgxEnclave> {
@@ -82,43 +85,132 @@ fn main() {
     }
 
     println!("[+] say_something success...");
-    unsafe { ecc_test(enclave.geteid()); }
     unsafe { benchmark(enclave.geteid()); }
     enclave.destroy();
 }
 
 unsafe fn benchmark(eid: sgx_enclave_id_t) {
-    ecc_test(eid); // warmup
     let n = 1_000;
     let data = b"hello world";
 
+    // warmup
+    openssl_ecc_sign_test();
+    openssl_ecc_enclave_test(eid);
+    ring_ecc_enclave_test(eid);
+    empty_function(data.as_ptr(), data.len());
 
-    ecc_key_create();
-    staged_benchmark_start!("openssl_no_enclave");
+
+    //empty_function_no_enclave
+    staged_benchmark_start!("empty_function_no_enclave");
     for _ in 0..n {
-        ecc_sign(data);
+        empty_function(data.as_ptr(), data.len());
+    }
+    staged_benchmark_finish_current!(n);
+    let mut lb_empty_no_enclave = LatencyBenchmark::new();
+    for _ in 0..n {
+        lb_empty_no_enclave.op_start();
+        empty_function(data.as_ptr(), data.len());
+        lb_empty_no_enclave.op_finish();
+    }
+
+
+    //empty_function_no_enclave
+    staged_benchmark_start!("empty_function_enclave");
+    for _ in 0..n {
+        ecall_empty_function(eid, data.as_ptr(), data.len());
     }
     staged_benchmark_finish_current!(n);
 
-    let mut retval = sgx_status_t::SGX_SUCCESS;
+    let mut lb_empty_enclave = LatencyBenchmark::new();
+    for _ in 0..n {
+        lb_empty_enclave.op_start();
+        ecall_empty_function(eid, data.as_ptr(), data.len());
+        lb_empty_enclave.op_finish();
+    }
+
+
+    //openssl_no_enclave
+    staged_benchmark_start!("openssl_no_enclave");
+    for _ in 0..n {
+        openssl_ecc_sign(data);
+    }
+    staged_benchmark_finish_current!(n);
+
+    let mut lb_openssl_no_enclave = LatencyBenchmark::new();
+    for _ in 0..n {
+        lb_openssl_no_enclave.op_start();
+        openssl_ecc_sign(data);
+        lb_openssl_no_enclave.op_finish();
+    }
+
+    //openssl_enclave
     staged_benchmark_start!("openssl_enclave");
     for _ in 0..n {
-        let result = ecall_ecc_sign(eid, &mut retval, data.as_ptr() as *const u8, data.len());
+        let result = ecall_openssl_ecc_sign(eid, data.as_ptr() as *const u8, data.len());
         assert_eq!(result, sgx_status_t::SGX_SUCCESS);
     }
     staged_benchmark_finish_current!(n);
-    staged_benchmark_print_for!("openssl_enclave");
+
+    let mut lb_openssl_enclave = LatencyBenchmark::new();
+    for _ in 0..n {
+        lb_openssl_enclave.op_start();
+        ecall_openssl_ecc_sign(eid, data.as_ptr() as *const u8, data.len());
+        lb_openssl_enclave.op_finish();
+    }
+
+    //ring_enclave
+    staged_benchmark_start!("ring_enclave");
+    for _ in 0..n {
+        let result = ecall_ring_ecc_sign(eid, data.as_ptr() as *const u8, data.len());
+        assert_eq!(result, sgx_status_t::SGX_SUCCESS);
+    }
+    staged_benchmark_finish_current!(n);
+
+    let mut lb_ring_enclave = LatencyBenchmark::new();
+    for _ in 0..n {
+        lb_ring_enclave.op_start();
+        ecall_ring_ecc_sign(eid, data.as_ptr() as *const u8, data.len());
+        lb_ring_enclave.op_finish();
+    }
+
+    //print_results
+    staged_benchmark_print_for!("openssl_no_enclave");
+    print!("lb_empty_enclave\t");
+    lb_empty_enclave.print();
+    print!("lb_empty_no_enclave\t");
+    lb_empty_no_enclave.print();
+    print!("lb_openssl_enclave\t");
+    lb_openssl_enclave.print();
+    print!("lb_openssl_no_enclave\t");
+    lb_openssl_no_enclave.print();
+    print!("lb_ring_enclave\t");
+    lb_ring_enclave.print();
 }
 
-unsafe fn ecc_test(eid: sgx_enclave_id_t) {
-    println!("[+] ecc_test");
-    let mut retval = sgx_status_t::SGX_SUCCESS;
-    println!("[+] ecall_ecc_key_create");
-    let result = ecall_ecc_key_create(eid, &mut retval);
+fn empty_function(_data: *const u8, _len: usize) {
+
+}
+
+unsafe fn openssl_ecc_enclave_test(eid: sgx_enclave_id_t) {
+    println!("[+] openssl_ecc_enclave_test");
+    println!("[+] ecall_openssl_ecc_key_create");
+    let result = ecall_openssl_ecc_key_create(eid);
     assert_eq!(result, sgx_status_t::SGX_SUCCESS);
 
-    println!("[+] ecall_ecc_sign");
+    println!("[+] ecall_openssl_ecc_sign");
     let data = String::from("to sign");
-    let result = ecall_ecc_sign(eid, &mut retval, data.as_ptr() as *const u8, data.len());
+    let result = ecall_openssl_ecc_sign(eid, data.as_ptr() as *const u8, data.len());
+    assert_eq!(result, sgx_status_t::SGX_SUCCESS);
+}
+
+unsafe fn ring_ecc_enclave_test(eid: sgx_enclave_id_t) {
+    println!("[+] ring_ecc_enclave_test");
+    println!("[+] ecall_ring_ecc_key_create");
+    let result = ecall_ring_ecc_key_create(eid);
+    assert_eq!(result, sgx_status_t::SGX_SUCCESS);
+
+    println!("[+] ecall_ring_ecc_sign");
+    let data = String::from("to sign");
+    let result = ecall_ring_ecc_sign(eid, data.as_ptr() as *const u8, data.len());
     assert_eq!(result, sgx_status_t::SGX_SUCCESS);
 }

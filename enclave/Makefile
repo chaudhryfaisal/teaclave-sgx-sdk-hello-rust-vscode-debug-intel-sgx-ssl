@@ -37,8 +37,8 @@ all: $(Rust_Enclave_Name)
 $(Rust_Enclave_Name): $(Rust_Enclave_Files)
 ifeq ($(XARGO_SGX), 1)
 	RUST_TARGET_PATH=$(Rust_Target_Path) xargo build --target x86_64-unknown-linux-sgx
-	cp ../target/x86_64-unknown-linux-sgx/debug/libhelloworldsampleenclave.a ${CUSTOM_LIBRARY_PATH}/libenclave.a
+	cp ../target/x86_64-unknown-linux-sgx/debug/libenclave.a ${CUSTOM_LIBRARY_PATH}/libenclave.a
 else
-	cargo build ${Cargo_Flags}
-	cp ../${Target_Path}/libhelloworldsampleenclave.a ${CUSTOM_LIBRARY_PATH}/libenclave.a
+	cargo build ${Cargo_Flags} 2>&1 | grep -v 'skipping duplicate package'
+	cp ../${Target_Path}/libenclave.a ${CUSTOM_LIBRARY_PATH}/libenclave.a
 endif

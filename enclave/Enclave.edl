@@ -23,9 +23,11 @@ enclave {
     from "sgx_pthread.edl" import *;
     trusted {
         /* define ECALLs here. */
-
         public sgx_status_t say_something([in, size=len] const uint8_t* some_string, size_t len);
-        public void ecall_ecc_key_create(size_t op_index);
-        public void ecall_ecc_sign( size_t     op_index, [user_check] uint8_t* clear_text, size_t clear_text_len);
+        public void ecall_openssl_ecc_key_create();
+        public void ecall_openssl_ecc_sign([user_check] uint8_t* clear_text, size_t clear_text_len);
+        public void ecall_ring_ecc_key_create();
+        public void ecall_ring_ecc_sign([user_check] uint8_t* clear_text, size_t clear_text_len);
+        public void ecall_empty_function([user_check] uint8_t* clear_text, size_t clear_text_len);
     };
 };

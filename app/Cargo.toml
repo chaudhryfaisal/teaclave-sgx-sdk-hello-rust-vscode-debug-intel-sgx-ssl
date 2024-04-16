@@ -3,6 +3,7 @@ name = "app"
 version = "1.0.0"
 authors = ["The Teaclave Authors"]
 build = "build.rs"
+edition = "2021"
 
 [dependencies]
 openssl-sys = { version = "0.9.101", features = ["vendored"] }

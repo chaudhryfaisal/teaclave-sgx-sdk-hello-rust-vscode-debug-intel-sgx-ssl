@@ -1,0 +1,9 @@
+[package]
+name = "app-ring"
+version = "1.0.0"
+authors = ["The Teaclave Authors"]
+edition = "2021"
+[workspace]
+[dependencies]
+bma-benchmark = { path = "../vendor/bma-benchmark" }
+ring = { git = "https://github.com/chaudhryfaisal/ring.git", branch = "main", default-features = false, features = ["alloc"] }

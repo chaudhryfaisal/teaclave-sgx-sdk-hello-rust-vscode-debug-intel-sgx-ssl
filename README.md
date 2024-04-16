@@ -42,14 +42,14 @@ make # test with simulation
 ```
 
 # Test in docker
-````bash
+```bash
 git clone
 cd teaclave-sgx-sdk-hello-rust-vscode-debug-intel-sgx-ssl
 make shell
 # inside container shell
 ./setup-intel-sgx-ssl.sh
 make 
-``
+```
 
 # simulation
 ```bash
